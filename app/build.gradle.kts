@@ -1,3 +1,13 @@
+import java.util.Properties
+import java.io.FileInputStream
+
+val configurationFile = rootProject.file("app/configuration.properties")
+val configuration = Properties().apply {
+    if (configurationFile.exists()) {
+        load(FileInputStream(configurationFile))
+    }
+}
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
@@ -13,6 +23,10 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
+
+        // Add your configuration as build config fields
+        buildConfigField("String", "TELEGRAM_BOT_TOKEN", "\"${configuration.getProperty("TELEGRAM_BOT_TOKEN", "")}\"")
+        buildConfigField("String", "TELEGRAM_CHAT_ID", "\"${configuration.getProperty("TELEGRAM_CHAT_ID", "")}\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -38,6 +52,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.1"
@@ -59,6 +74,7 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.okhttp)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

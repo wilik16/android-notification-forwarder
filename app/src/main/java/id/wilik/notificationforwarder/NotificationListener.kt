@@ -5,6 +5,9 @@ import android.service.notification.StatusBarNotification
 import android.util.Log
 import java.util.regex.Matcher
 import java.util.regex.Pattern
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class NotificationListener : NotificationListenerService() {
     override fun onNotificationPosted(sbn: StatusBarNotification) {
@@ -30,7 +33,13 @@ class NotificationListener : NotificationListenerService() {
             Log.d("NotificationListener", "Payment method : $paymentMethod")
             Log.d("NotificationListener", "Amount : $amount")
 
-            // Call Telegram API or do other thing with this data.
+            CoroutineScope(Dispatchers.Main).launch {
+                try {
+                    TelegramSender.sendMessage("Dana QRIS diterima.\n\nMetode: *$paymentMethod*\nNominal: $amount")
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
         }
     }
 
