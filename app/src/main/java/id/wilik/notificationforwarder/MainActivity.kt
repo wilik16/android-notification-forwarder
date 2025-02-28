@@ -1,6 +1,8 @@
 package id.wilik.notificationforwarder
 
+import android.content.Intent
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -27,6 +29,16 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+
+        if (!isNotificationServiceEnabled()) {
+            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+        }
+    }
+
+    private fun isNotificationServiceEnabled(): Boolean {
+        val contentResolver = contentResolver
+        val enabledNotificationListeners = Settings.Secure.getString(contentResolver, "enabled_notification_listeners")
+        return enabledNotificationListeners != null && enabledNotificationListeners.contains(applicationContext.packageName)
     }
 }
 
