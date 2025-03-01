@@ -13,34 +13,58 @@ import okhttp3.Request
 import java.io.IOException
 import kotlin.text.Typography.times
 
+data class TelegramChat(
+    val id: String,
+    val name: String,
+    var isEnabled: Boolean = true
+)
+
 object TelegramSender {
     private val client = OkHttpClient()
     private const val BOT_TOKEN = BuildConfig.TELEGRAM_BOT_TOKEN
-    private const val CHAT_ID = BuildConfig.TELEGRAM_CHAT_ID
+    private val chats = mutableListOf<TelegramChat>()
+
+    init {
+        // Initialize with default chat from BuildConfig
+        val defaultChatId = BuildConfig.TELEGRAM_CHAT_ID
+        if (defaultChatId.isNotEmpty()) {
+            chats.add(TelegramChat(defaultChatId, "Internal Group"))
+        }
+    }
+
+    fun addChat(chat: TelegramChat) {
+        if (!chats.any { it.id == chat.id }) {
+            chats.add(chat)
+        }
+    }
+
+    fun getChats(): List<TelegramChat> = chats.toList()
+
+    fun updateChatEnabled(chatId: String, enabled: Boolean) {
+        Log.e("NotificationListener", "updateChatEnabled $chatId $enabled")
+        chats.find { it.id == chatId }?.isEnabled = enabled
+    }
+
     private const val TELEGRAM_API_URL = "https://api.telegram.org/bot$BOT_TOKEN/sendMessage"
 
     suspend fun sendMessage(message: String) {
-        val json = """{"chat_id":"$CHAT_ID","text":"$message"}"""
-        val body = json.toRequestBody("application/json; charset=utf-8".toMediaType())
+        chats.filter { it.isEnabled }.forEach { chat ->
+            val json = """{"chat_id":"${chat.id}","text":"$message"}"""
+            val body = json.toRequestBody("application/json; charset=utf-8".toMediaType())
 
-        val request = Request.Builder()
-            .url(TELEGRAM_API_URL)
-            .post(body)
-            .build()
+            val request = Request.Builder()
+                .url(TELEGRAM_API_URL)
+                .post(body)
+                .build()
 
-        retryIO {
-            withContext(Dispatchers.IO) {
-                client.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) throw IOException("Unexpected code $response")
+            retryIO {
+                withContext(Dispatchers.IO) {
+                    client.newCall(request).execute().use { response ->
+                        if (!response.isSuccessful) throw IOException("Unexpected code $response")
+                    }
                 }
             }
         }
-
-//        withContext(Dispatchers.IO) {
-//            client.newCall(request).execute().use { response: Response ->
-//                if (!response.isSuccessful) throw IOException("Unexpected code $response")
-//            }
-//        }
     }
 
     private suspend fun <T> retryIO(
@@ -56,9 +80,6 @@ object TelegramSender {
             try {
                 return block()
             } catch (e: IOException) {
-//                logMessages.add(e.localizedMessage ?: "")
-//                e.printStackTrace()
-
                 Log.e("TelegramSender", "IOException")
             }
             delay(currentDelay)
