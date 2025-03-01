@@ -1,0 +1,17 @@
+package id.wilik.notificationforwarder
+
+data class NotificationRule(
+    val packageName: String,
+    val regexPattern: String,
+    val messageTemplate: String
+)
+
+object NotificationHandlers {
+    val rules = listOf(
+        NotificationRule(
+            packageName = "com.example",
+            regexPattern = "^some_pattern\$",
+            messageTemplate = "This is message %s %s"
+        ),
+    )
+}

@@ -3,7 +3,6 @@ package id.wilik.notificationforwarder
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
-import java.util.regex.Matcher
 import java.util.regex.Pattern
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -14,33 +13,41 @@ class NotificationListener : NotificationListenerService() {
         val packageName = sbn.packageName
         val notificationText = sbn.notification.extras.getString("android.text")
 
-        Log.d("NotificationListener", "Notification from: $packageName")
-        Log.d("NotificationListener", "Notification text: $notificationText")
+        Log.d("NotificationListener", "$packageName: $notificationText")
 
-        // Skip process if the notification is not from "id.dana" app or the text is null
-        if (!packageName.equals("id.dana") || notificationText == null) {
+        // Skip process if the text is null
+        if (notificationText == null) {
+            Log.d("NotificationListener", "Notification text is null")
             return
         }
 
-        // Regex matching to parse the notification text
-        val danaQris: Pattern = Pattern.compile("^Kamu berhasil menerima (.*) via (.*) ke akunmu. Cek yuk!\$")
-        val danaQrisMatcher: Matcher = danaQris.matcher(notificationText)
+        NotificationHandlers.rules
+            .find { it.packageName == packageName }
+            ?.let { rule ->
+                val pattern = Pattern.compile(rule.regexPattern)
+                val matcher = pattern.matcher(notificationText)
 
-        if (danaQrisMatcher.matches()) {
-            val paymentMethod = danaQrisMatcher.group(2)
-            val amount = danaQrisMatcher.group(1)
+                if (matcher.matches()) {
+                    val groups = (1..matcher.groupCount()).map {
+                        matcher.group(it) ?: ""
+                    }.toTypedArray()
 
-            Log.d("NotificationListener", "Payment method : $paymentMethod")
-            Log.d("NotificationListener", "Amount : $amount")
-
-            CoroutineScope(Dispatchers.Main).launch {
-                try {
-                    TelegramSender.sendMessage("Dana QRIS diterima.\n\nMetode: *$paymentMethod*\nNominal: $amount")
-                } catch (e: Exception) {
-                    e.printStackTrace()
+                    CoroutineScope(Dispatchers.Main).launch {
+                        try {
+                            if (groups.isEmpty()) {
+                                TelegramSender.sendMessage(rule.messageTemplate)
+                            } else {
+                                TelegramSender.sendMessage(String.format(rule.messageTemplate, *groups))
+                            }
+                        } catch (e: Exception) {
+                            Log.e("NotificationListener", "Error sending message", e)
+                            e.printStackTrace()
+                        }
+                    }
+                } else {
+                    Log.d("NotificationListener", "No pattern match for $packageName")
                 }
             }
-        }
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
